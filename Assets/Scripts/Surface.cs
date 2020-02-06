@@ -10,9 +10,10 @@ public class Surface : MonoBehaviour
     public GameObject surfaceChunkPrefab;
     void Start()
     {
+        m_surfaceValues = new float[27] { 1f, -1f, 1f, -1f, -1f, -1f, -1f, -1f, -1f, -1f, -1f, -1f, -1f, -1f, -1f, -1f, -1f, -1f, -1f, -1f, -1f, -1f, -1f, -1f, -1f, -1f, -1f };
         GameObject obj = Instantiate(surfaceChunkPrefab);
         SurfaceChunk surfaceChunk = obj.GetComponent<SurfaceChunk>();
-        surfaceChunk.Initalize(0, 1, this);
+        surfaceChunk.Initalize(0, 2, this);
 
         surfaceChunk.Refresh();
     }

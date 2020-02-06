@@ -18,19 +18,14 @@ namespace Worlds
 
             public struct TriangulateJob : IJobParallelFor
             {
-                /*struct Vertex
-                {
-                    public float4 position;
-                    //float3 normal;
-                }*/
+                [ReadOnly] public int _Res;
 
-                int _Res;
+                [ReadOnly] public NativeArray<int> _TriangleConnectionTable;
+                [ReadOnly] public NativeArray<int> _CubeEdgeFlags;
+                [ReadOnly] public NativeArray<float> _DensityMap;
 
-                [ReadOnly] NativeArray<int> _TriangleConnectionTable;
-                [ReadOnly] NativeArray<int> _CubeEdgeFlags;
-                [ReadOnly] NativeArray<float> _DensityMap;
-
-                NativeArray<Vertex> _Vertices;
+                [NativeDisableContainerSafetyRestriction]
+                [WriteOnly] public NativeArray<Vertex> _Vertices;
 
                 static int2[] _EdgeConnections =
                 {
@@ -54,10 +49,10 @@ namespace Worlds
 
                 void FillCell(int x, int y, int z, out float[] cell)
                 {
-                    int res = _Res;
+                    int res = _Res + 1;     //resolution with padding
                     int res2 = res * res;
 
-                    cell = new float[12];
+                    cell = new float[8];
                     cell[0] = _DensityMap[x + y * res + z * res2];
                     cell[1] = _DensityMap[(x + 1) + y * res + z * res2];
                     cell[2] = _DensityMap[(x + 1) + ((y + 1) * res) + (z * res2)];
@@ -92,17 +87,16 @@ namespace Worlds
                     int y = (index / _Res) % _Res;
                     int z = (index / (_Res * _Res)) % _Res;
 
-                    float[] cube = new float[8];
+                    float[] cube;
                     float3 position = new float3(x, y, z);
                     float3[] edgeVertex = new float3[12];
 
                     //fill the cube with density at corners
                     FillCell(x, y, z, out cube);
-
+                    
                     //find whether corner is inside or outside the surface
                     int flagIndex = 0;
                     for(int i = 0; i < 8; i++)
-                        //if(cube[i] <= _DensityOffset)
                         if(cube[i] <= 0.0f)
                             flagIndex |= 1 << i;
 
