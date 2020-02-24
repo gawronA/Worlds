@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using Unity.Burst;
 using Unity.Jobs;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -17,6 +18,7 @@ namespace Worlds
                 public float3 normal;
             }
 
+            [BurstCompile]
             public struct TriangulateJob : IJobParallelFor
             {
                 [ReadOnly] public int _Res;
@@ -29,32 +31,32 @@ namespace Worlds
                 [NativeDisableContainerSafetyRestriction]
                 [WriteOnly] public NativeArray<Vertex> _Vertices;
 
-                static int2[] _EdgeConnections =
+                static readonly int2[] _EdgeConnections =
                 {
                     new int2(0, 1), new int2(1, 2), new int2(2, 3), new int2(3, 0),
                     new int2(4, 5), new int2(5, 6), new int2(6, 7), new int2(7, 4),
                     new int2(0, 4), new int2(1, 5), new int2(2, 6), new int2(3, 7)
                 };
 
-                static float3[] _EdgeDirections =
+                static readonly float3[] _EdgeDirections =
                 {
                     new float3(1.0f, 0.0f, 0.0f), new float3(0.0f, 1.0f, 0.0f), new float3(-1.0f, 0.0f, 0.0f), new float3(0.0f, -1.0f, 0.0f),
                     new float3(1.0f, 0.0f, 0.0f), new float3(0.0f, 1.0f, 0.0f), new float3(-1.0f, 0.0f, 0.0f), new float3(0.0f, -1.0f, 0.0f),
                     new float3(0.0f, 0.0f, 1.0f), new float3(0.0f, 0.0f, 1.0f), new float3(0.0f, 0.0f, 1.0f),  new float3(0.0f, 0.0f, 1.0f)
                 };
 
-                static float3[] _VertexOffsets =
+                static readonly float3[] _VertexOffsets =
                 {
                     new float3(0.0f, 0.0f, 0.0f), new float3(1.0f, 0.0f, 0.0f), new float3(1.0f, 1.0f, 0.0f), new float3(0.0f, 1.0f, 0.0f),
                     new float3(0.0f, 0.0f, 1.0f), new float3(1.0f, 0.0f, 1.0f), new float3(1.0f, 1.0f, 1.0f), new float3(0.0f, 1.0f, 1.0f)
                 };
 
-                void FillCell(int x, int y, int z, out float[] cell)
+                void FillCell(int x, int y, int z, out NativeArray<float> cell)
                 {
                     int res = _Res + 1;     //resolution with padding
                     int res2 = res * res;
 
-                    cell = new float[8];
+                    cell = new NativeArray<float>(8, Allocator.Temp);
                     cell[0] = _DensityMap[x + y * res + z * res2];
                     cell[1] = _DensityMap[(x + 1) + y * res + z * res2];
                     cell[2] = _DensityMap[(x + 1) + ((y + 1) * res) + (z * res2)];
@@ -112,9 +114,9 @@ namespace Worlds
                     int y = (index / _Res) % _Res;
                     int z = (index / (_Res * _Res)) % _Res;
 
-                    float[] cube;
+                    NativeArray<float> cube;
                     float3 position = new float3(x, y, z);
-                    float3[] edgeVertex = new float3[12];
+                    NativeArray<float3> edgeVertex = new NativeArray<float3>(12, Allocator.Temp);
 
                     //fill the cube with density at corners
                     FillCell(x, y, z, out cube);
@@ -157,9 +159,12 @@ namespace Worlds
                             _Vertices[buffer_index * 15 + (3 * i + 2)] = CreateVertex(vertex_position);
                         }
                     }
+                    cube.Dispose();
+                    edgeVertex.Dispose();
                 }
             }
-        
+
+            [BurstCompile]
             public struct ResetVertBufferJob : IJobParallelFor
             {
                 [NativeDisableContainerSafetyRestriction]
@@ -177,6 +182,7 @@ namespace Worlds
                 }
             }
 
+            [BurstCompile]
             public struct CalculateNormalTextureJob : IJobParallelFor
             {
                 [ReadOnly] public int _Res;
