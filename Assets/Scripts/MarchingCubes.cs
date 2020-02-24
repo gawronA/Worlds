@@ -3,6 +3,7 @@ using Unity.Jobs;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
+using static Unity.Mathematics.math;
 
 namespace Worlds
 {
@@ -12,8 +13,8 @@ namespace Worlds
         {
             public struct Vertex
             {
-                public Vector4 position;
-                //float3 normal;
+                public float4 position;
+                public float3 normal;
             }
 
             public struct TriangulateJob : IJobParallelFor
@@ -23,6 +24,7 @@ namespace Worlds
                 [ReadOnly] public NativeArray<int> _TriangleConnectionTable;
                 [ReadOnly] public NativeArray<int> _CubeEdgeFlags;
                 [ReadOnly] public NativeArray<float> _DensityMap;
+                [ReadOnly] public NativeArray<float3> _NormalTexture;
 
                 [NativeDisableContainerSafetyRestriction]
                 [WriteOnly] public NativeArray<Vertex> _Vertices;
@@ -75,10 +77,33 @@ namespace Worlds
                 {
                     Vertex vert = new Vertex();
                     vert.position = new float4((position), 1.0f);
-
+                    //float3 uv = position / float3(_Res);
                     //float3 uv = position / normalsTextureSize;
                     //vert.normal = _Normals.SampleLevel(_LinearClamp, uv, 0);
+                    vert.normal = LinearClamp(position);
                     return vert;
+                }
+
+                float3 LinearClamp(float3 position)
+                {
+                    float offset = 0.5f;
+                    int3 xyzindex = (int3)(position - offset);
+                    float3 xyztail = (position - offset) - xyzindex;
+                    
+                    float3 normalA = _NormalTexture[xyzindex.x + xyzindex.y * _Res + xyzindex.z * _Res * _Res];
+                    float3 normalB;
+
+                    if(xyzindex.x + 1 >= _Res && xyzindex.y + 1 >= _Res && xyzindex.z + 1 >= _Res) normalB = new float3(0f, 0f, 0f);
+                    else if(xyzindex.x + 1 >= _Res && xyzindex.y + 1 >= _Res) normalB = new float3(0f, 0f, _NormalTexture[xyzindex.x + xyzindex.y * _Res + (xyzindex.z + 1) * _Res * _Res].z);
+                    else if(xyzindex.x + 1 >= _Res && xyzindex.z + 1 >= _Res) normalB = new float3(0f, _NormalTexture[xyzindex.x + (xyzindex.y + 1) * _Res + xyzindex.z * _Res * _Res].y, 0f);
+                    else if(xyzindex.y + 1 >= _Res && xyzindex.z + 1 >= _Res) normalB = new float3(_NormalTexture[(xyzindex.x + 1) + xyzindex.y * _Res + xyzindex.z * _Res * _Res].x, 0f, 0f);
+                    else if(xyzindex.x + 1 >= _Res) normalB = new float3(0f, _NormalTexture[xyzindex.x + (xyzindex.y + 1) * _Res + xyzindex.z * _Res * _Res].y, _NormalTexture[xyzindex.x + xyzindex.y * _Res + (xyzindex.z + 1) * _Res * _Res].z);
+                    else if(xyzindex.y + 1 >= _Res) normalB = new float3(_NormalTexture[(xyzindex.x + 1) + xyzindex.y * _Res + xyzindex.z * _Res * _Res].x, 0f, _NormalTexture[xyzindex.x + xyzindex.y * _Res + (xyzindex.z + 1) * _Res * _Res].z);
+                    else if(xyzindex.z + 1 >= _Res) normalB = new float3(_NormalTexture[(xyzindex.x + 1) + xyzindex.y * _Res + xyzindex.z * _Res * _Res].x, _NormalTexture[xyzindex.x + (xyzindex.y + 1) * _Res + xyzindex.z * _Res * _Res].y, 0f);
+                    else normalB = new float3(_NormalTexture[(xyzindex.x + 1) + xyzindex.y * _Res + xyzindex.z * _Res * _Res].x, _NormalTexture[xyzindex.x + (xyzindex.y + 1) * _Res + xyzindex.z * _Res * _Res].y, _NormalTexture[xyzindex.x + xyzindex.y * _Res + (xyzindex.z + 1) * _Res * _Res].z);
+
+                    float3 normal = lerp(normalA, normalB, xyztail);
+                    return normalize(normal);
                 }
 
                 public void Execute(int index)
@@ -119,7 +144,6 @@ namespace Worlds
 
                     //Do the triangulation
                     int buffer_index = index;
-                    float3 normalsTextureSize = new float3(_Res);
                     for(int i = 0; i < 5; i++) //up to 5 triangles
                     {
                         if(_TriangleConnectionTable[flagIndex * 16 + 3 * i] >= 0)
@@ -136,13 +160,8 @@ namespace Worlds
                 }
             }
         
-            public struct ResetVertBufferJob :IJobParallelFor
+            public struct ResetVertBufferJob : IJobParallelFor
             {
-                /*struct Vertex
-                {
-                    public float4 position;
-                    //float3 normal;
-                };*/
                 [NativeDisableContainerSafetyRestriction]
                 [WriteOnly] public NativeArray<Vertex> _Vertices;
 
@@ -152,9 +171,40 @@ namespace Worlds
                     {
                         Vertex vertex = new Vertex();
                         vertex.position = new float4(-1f, -1f, -1f, -1f);
-                        //vertex.normal = new float3(0f, 0f, 0f);
+                        vertex.normal = new float3(0f, 0f, 0f);
                         _Vertices[index * 3 * 5 + i] = vertex;
                     }
+                }
+            }
+
+            public struct CalculateNormalTextureJob : IJobParallelFor
+            {
+                [ReadOnly] public int _Res;
+                [ReadOnly] public NativeArray<float> _DensityMap;
+                
+                [WriteOnly] public NativeArray<float3> _NormalTexture;
+
+                float dx, dy, dz;
+                float value;
+
+                public void Execute(int index)
+                {
+                    int res = _Res;
+                    int res2 = res * res;
+
+                    int res_p = _Res + 1;
+                    int res2_p = res_p * res_p;
+
+                    int x = index % res;
+                    int y = (index / res) % res;
+                    int z = (index / (res * res)) % res;
+
+                    value = _DensityMap[x + y * res_p + z * res2_p];
+                    dx = value - _DensityMap[(x + 1) + y * res_p + z * res2_p];
+                    dy = value - _DensityMap[x + (y + 1) * res_p + z * res2_p];
+                    dz = value - _DensityMap[x + y * res_p + (z + 1) * res2_p];
+                    float3 normal = (dx != 0f || dy != 0f || dz != 0f) ? normalize(float3(dx, dy, dz)) : 0f;
+                    _NormalTexture[index] = normal;
                 }
             }
         }
