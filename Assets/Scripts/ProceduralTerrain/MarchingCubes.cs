@@ -22,6 +22,7 @@ namespace Worlds
             public struct TriangulateJob : IJobParallelFor
             {
                 [ReadOnly] public int _Res;
+                [ReadOnly] public float _Scale;
 
                 [ReadOnly] public NativeArray<int> _TriangleConnectionTable;
                 [ReadOnly] public NativeArray<int> _CubeEdgeFlags;
@@ -78,7 +79,7 @@ namespace Worlds
                 Vertex CreateVertex(float3 position/*, float3 normalsTextureSize*/)
                 {
                     Vertex vert = new Vertex();
-                    vert.position = new float4((position), 1.0f);
+                    vert.position = new float4((position), 1.0f) * _Scale;
                     //float3 uv = position / float3(_Res);
                     //float3 uv = position / normalsTextureSize;
                     //vert.normal = _Normals.SampleLevel(_LinearClamp, uv, 0);

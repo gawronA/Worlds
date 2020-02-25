@@ -45,6 +45,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 922317534a1011943a4d6324c926fb23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  m_Refresh: 0
+  m_Draw_normals: 0
+  m_player_distance: 0
+  m_current_lod: 4
+  m_LOD0_dist: 200
+  m_LOD1_dist: 400
+  m_LOD2_dist: 600
 --- !u!33 &-7378910333607310069
 MeshFilter:
   m_ObjectHideFlags: 0

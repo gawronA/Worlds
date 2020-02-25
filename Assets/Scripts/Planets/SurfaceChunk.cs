@@ -7,13 +7,25 @@ using Worlds.ProceduralTerrain.MarchingCubes;
 
 public class SurfaceChunk : MonoBehaviour
 {
+    //debug
     public bool m_Refresh = false;
     public bool m_Draw_normals = false;
-    private int m_id;
-    private Surface m_surface;
-    private Vector3Int m_position;
-    private int m_offset;
 
+    //chunk data
+    private int m_id;
+    private int m_offset;
+    private Vector3Int m_position;
+
+    //player
+    public float m_player_distance;
+
+    //LOD groups
+    public int m_current_lod = 2;
+    public float m_LOD0_dist = 200f; //0 - 200m
+    public float m_LOD1_dist = 400f; //m_LOD0_dist - 400m
+    public float m_LOD2_dist = 600f;
+
+    //surface data
     public int m_res { get; private set; }
     private int m_res2;
     private int m_res3;
@@ -22,19 +34,22 @@ public class SurfaceChunk : MonoBehaviour
     private int m_res3_p;
     private int m_full_res_p;
     private int m_full_res2_p;
-    private int m_maxVerts;
+    
+    //refs
+    private Surface m_surface;
+    private MeshFilter m_meshFilter;
 
+    //MC daata
+    private NativeArray<int> m_cubeEdgeFlagsBuffer;
+    private NativeArray<int> m_triangleConnectionTableBuffer;
     private NativeArray<Vertex> m_verticesBuffer;
     private NativeArray<float3> m_normalTexture;
     private NativeArray<float> m_surfaceValues;
+    private int m_maxVerts;
+
+    //job
     private JobHandle m_triangulateJobHandle;
     private bool m_refreshed = false;
-
-    private MeshFilter m_meshFilter;
-
-    //MC buffers
-    NativeArray<int> m_cubeEdgeFlagsBuffer;
-    NativeArray<int> m_triangleConnectionTableBuffer;
 
     private void Awake()
     {
@@ -61,6 +76,9 @@ public class SurfaceChunk : MonoBehaviour
     private void OnDestroy()
     {
         m_triangulateJobHandle.Complete();
+        if(m_verticesBuffer != null && m_verticesBuffer.Length != 0) m_verticesBuffer.Dispose();
+        if(m_normalTexture != null && m_normalTexture.Length != 0) m_normalTexture.Dispose();
+        if(m_surfaceValues != null && m_surfaceValues.Length != 0) m_surfaceValues.Dispose();
         if(m_cubeEdgeFlagsBuffer != null && m_cubeEdgeFlagsBuffer.Length != 0) m_cubeEdgeFlagsBuffer.Dispose();
         if(m_triangleConnectionTableBuffer != null && m_triangleConnectionTableBuffer.Length != 0) m_triangleConnectionTableBuffer.Dispose();
     }
@@ -71,22 +89,11 @@ public class SurfaceChunk : MonoBehaviour
 
         m_surface = GetComponentInParent<Surface>();
         m_position = new Vector3Int(m_id % m_surface.m_num_of_chunks, (m_id / m_surface.m_num_of_chunks) % m_surface.m_num_of_chunks, (m_id / (m_surface.m_num_of_chunks * m_surface.m_num_of_chunks)) % m_surface.m_num_of_chunks);
-
-        m_res = m_surface.m_res;
-        m_res2 = m_res * m_res;
-        m_res3 = m_res2 * m_res;
-
-        m_res_p = m_surface.m_res + 1;
-        m_res2_p = m_res_p * m_res_p;
-        m_res3_p = m_res2_p * m_res_p;
-
+        
+        SetResolutions();
         m_full_res_p = m_surface.m_num_of_chunks * m_surface.m_res + 1;
         m_full_res2_p = m_full_res_p * m_full_res_p;
-
-        m_offset = m_position.x * m_res + m_position.y * m_res * m_full_res_p + m_position.z * m_res * m_full_res2_p;
-
-        m_maxVerts = m_res3 * 5 * 3;
-        if(m_maxVerts > 65535) throw new System.ArgumentException("Maximum number of vertices is 65535 (" + m_maxVerts.ToString() + ")");
+        m_offset = m_position.x * m_surface.m_res + m_position.y * m_surface.m_res * m_full_res_p + m_position.z * m_surface.m_res * m_full_res2_p;
 
         m_cubeEdgeFlagsBuffer = new NativeArray<int>(256, Allocator.Persistent);
         for(int i = 0; i < 256; i++) m_cubeEdgeFlagsBuffer[i] = MarchingCubesTables.CubeEdgeFlags[i];
@@ -97,17 +104,20 @@ public class SurfaceChunk : MonoBehaviour
 
     public void Refresh()
     {
+        SetResolutions();
         m_verticesBuffer = new NativeArray<Vertex>(m_maxVerts, Allocator.TempJob);
         m_normalTexture = new NativeArray<float3>(m_res3, Allocator.TempJob);
         m_surfaceValues = new NativeArray<float>(m_res3_p, Allocator.TempJob);
-        
-        for(int z = 0; z < m_res_p; z++)
+
+        for(int z = 0; z < m_res_p; z++) 
         {
             for(int y = 0; y < m_res_p; y++)
             {
                 for(int x = 0; x < m_res_p; x++)
                 {
-                    m_surfaceValues[x + y * m_res_p + z * m_res2_p] = m_surface.m_surfaceValues[m_offset + x + y * m_full_res_p + z * m_full_res2_p];
+                    m_surfaceValues[x + y * m_res_p + z * m_res2_p] = m_surface.m_surfaceValues[m_offset +  (x * m_current_lod) + 
+                                                                                                            (y * m_current_lod) * m_full_res_p + 
+                                                                                                            (z * m_current_lod) * m_full_res2_p];
                 }
             }
         }
@@ -131,7 +141,8 @@ public class SurfaceChunk : MonoBehaviour
             _Res = m_res,
             _DensityMap = m_surfaceValues,
             _NormalTexture = m_normalTexture,
-            _Vertices = m_verticesBuffer
+            _Vertices = m_verticesBuffer,
+            _Scale = m_current_lod
         };
 
         JobHandle resetVertBufferJobHandle = resetVertBufferJob.Schedule(m_res3, Mathf.CeilToInt(m_res3 / 8f));
@@ -172,6 +183,19 @@ public class SurfaceChunk : MonoBehaviour
         m_surfaceValues.Dispose();
 
         m_refreshed = false;
+    }
+
+    private void SetResolutions()
+    {
+        m_res = m_surface.m_res / m_current_lod;
+        m_res2 = m_res * m_res;
+        m_res3 = m_res2 * m_res;
+
+        m_res_p = m_res + 1;
+        m_res2_p = m_res_p * m_res_p;
+        m_res3_p = m_res2_p * m_res_p;
+
+        m_maxVerts = m_res3 * 5 * 3;
     }
 }
 
