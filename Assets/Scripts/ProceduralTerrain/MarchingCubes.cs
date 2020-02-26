@@ -1,5 +1,4 @@
-﻿using UnityEngine;
-using Unity.Burst;
+﻿using Unity.Burst;
 using Unity.Jobs;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -72,17 +71,13 @@ namespace Worlds
                 float CalculateOffset(float v1, float v2)
                 {
                     float delta = v2 - v1;
-                    //return (delta == 0.0f) ? 0.5f : (_DensityOffset - v1) / delta;
                     return (delta == 0.0f) ? 0.5f : -v1 / delta;
                 }
 
-                Vertex CreateVertex(float3 position/*, float3 normalsTextureSize*/)
+                Vertex CreateVertex(float3 position)
                 {
                     Vertex vert = new Vertex();
                     vert.position = new float4((position), 1.0f) * _Scale;
-                    //float3 uv = position / float3(_Res);
-                    //float3 uv = position / normalsTextureSize;
-                    //vert.normal = _Normals.SampleLevel(_LinearClamp, uv, 0);
                     vert.normal = LinearClamp(position);
                     return vert;
                 }
