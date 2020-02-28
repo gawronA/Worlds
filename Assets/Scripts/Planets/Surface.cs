@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using Worlds.ProceduralTerrain.Generator;
+using Worlds.ProceduralTerrain;
 
 public class Surface : MonoBehaviour
 {
@@ -11,7 +12,7 @@ public class Surface : MonoBehaviour
     public int m_mesh_res { get; private set; }
     public int m_surface_res { get; private set; }
     public float[] m_surfaceValues { get; private set; }
-    PlanetGenerator generator;
+    Stamp stamp;
 
     private List<GameObject> m_chunks;
 
@@ -21,11 +22,13 @@ public class Surface : MonoBehaviour
     {
         m_mesh_res = m_num_of_chunks * m_chunk_res;
         m_surface_res = m_num_of_chunks * m_chunk_res + 2;
-
         m_surfaceValues = new float[m_surface_res * m_surface_res * m_surface_res];
-        generator = new PlanetGenerator(m_surfaceValues, m_surface_res);
-        generator.Clear();
-        generator.Sphere(Vector3Int.one * m_mesh_res / 2, m_radius);
+        stamp = new Stamp(m_surfaceValues, m_surface_res);
+        stamp.Clear();
+        stamp.Sphere(Vector3Int.one * m_mesh_res / 2, m_radius, Stamp.Align.Center);
+        //generator = new PlanetGenerator(m_surfaceValues, m_surface_res);
+        //generator.Clear();
+        //generator.Sphere(Vector3Int.one * m_mesh_res / 2, m_radius);
         //generator.Point(Vector3Int.one * m_mesh_res / 2);
         
         {/*
