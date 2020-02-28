@@ -4,37 +4,24 @@ using UnityEngine;
 
 public class SurfaceMapTexture : MonoBehaviour
 {
-    public enum Display { surfaceMap };
+    public enum Display { surfaceMap, normalMap };
 
-    public Display display;
+    public Display display = Display.surfaceMap;
     public int z = 0;
 
-    //public bool drawChunks = false;
-
-    private Surface p_surface;
+    private Surface m_surface;
     private MeshRenderer meshRenderer;
     private Texture2D texture;
     
-    private int m_res;
-    private int m_chunk_res;
-
-
-
-    private void OnEnable()
-    {
-        p_surface = GetComponentInParent<Surface>();
-        meshRenderer = GetComponent<MeshRenderer>();
-    }
     void Start()
     {
-        if(display == Display.surfaceMap)
-        {
-            m_res = p_surface.m_num_of_chunks * p_surface.m_res;
-            m_chunk_res = p_surface.m_res;
-            texture = new Texture2D(m_res + 1, m_res + 1, TextureFormat.RGB24, false);
-            texture.filterMode = FilterMode.Point;
-            texture.wrapMode = TextureWrapMode.Clamp;
-        }
+        m_surface = GetComponentInParent<Surface>();
+        meshRenderer = GetComponent<MeshRenderer>();
+        
+        texture = new Texture2D(m_surface.m_surface_res, m_surface.m_surface_res, TextureFormat.RGB24, false);
+        texture.filterMode = FilterMode.Point;
+        texture.wrapMode = TextureWrapMode.Clamp;
+        
         meshRenderer.material.mainTexture = texture;
     }
 
@@ -43,41 +30,59 @@ public class SurfaceMapTexture : MonoBehaviour
     {
         if(display == Display.surfaceMap)
         {
-            int res = m_res;
+            texture.filterMode = FilterMode.Point;
+            int res = m_surface.m_surface_res;
             int res2 = res * res;
-
-            int res_p = m_res + 1;
-            int res2_p = res_p * res_p;
-            int x, y;
             Color color;
-            for(y = 0; y < res; y++)
+            for(int y = 0; y < m_surface.m_surface_res; y++)
             {
-                for(x = 0; x < res; x++)
+                for(int x = 0; x < m_surface.m_surface_res; x++)
                 {
-                    if(z != res)
-                    {
-                        color = new Color(0f, (p_surface.m_surfaceValues[x + y * res_p + z * res2_p] + 1f) / 2f, 1f - (p_surface.m_surfaceValues[x + y * res_p + z * res2_p] + 1f) / 2f);
-                        texture.SetPixel(x, y, color);
-                    }
-                    else
-                    {
-                        color = new Color(0f, (p_surface.m_surfaceValues[x + y * res_p + z * res2_p] + 1f) / 2f, 1f - (p_surface.m_surfaceValues[x + y * res_p + z * res2_p] + 1f) / 2f);
-                        texture.SetPixel(x, y, color + Color.red);
-                    }
+                    color = new Color(0f, m_surface.m_surfaceValues[x + y * res + z * res2], 1 - m_surface.m_surfaceValues[x + y * res + z * res2]);
+                    if(x == res - 1 || y == res - 1 || z == res - 1) color += Color.red;
+                    else if(x == res - 2 || y == res - 2 || z == res - 2) color += Color.red * 0.75f;
+
+                    texture.SetPixel(x, y, color);
                 }
-                color = new Color(0f, (p_surface.m_surfaceValues[x + y * res_p + z * res2_p] + 1f) / 2f, 1f - (p_surface.m_surfaceValues[x + y * res_p + z * res2_p] + 1f) / 2f);
-                texture.SetPixel(x, y, color + Color.red);
             }
-            for(x = 0; x < res; x++)
-            {
-                color = new Color(0f, (p_surface.m_surfaceValues[x + y * res_p + z * res2_p] + 1f) / 2f, 1f - (p_surface.m_surfaceValues[x + y * res_p + z * res2_p] + 1f) / 2f);
-                texture.SetPixel(x, y, color + Color.red);
-            }
-            color = new Color(0f, (p_surface.m_surfaceValues[x + y * res_p + z * res2_p] + 1f) / 2f, 1f - (p_surface.m_surfaceValues[x + y * res_p + z * res2_p] + 1f) / 2f);
-            texture.SetPixel(x, y, color + Color.red);
         }
-        
-        
+        else if(display == Display.normalMap)
+        {
+            int res = m_surface.m_surface_res;
+            int res2 = res * res;
+            Color color;
+            texture.filterMode = FilterMode.Bilinear;
+            for(int y = 0; y < m_surface.m_surface_res; y++)
+            {
+                for(int x = 0; x < m_surface.m_surface_res; x++)
+                {
+                    color = new Color();
+                    if(x < res - 1 && y < res - 1 && z < res - 1)
+                    {
+                        Vector3 normal = Normal(x, y, z);
+                        color += new Color((normal.x + 1f) / 2, (normal.y + 1f) / 2, (normal.z + 1f) / 2);
+                    }
+                    else if(x == res - 1 || y == res - 1 || z == res - 1) color += Color.red;
+
+                    else if(x == res - 2 || y == res - 2 || z == res - 2) color += Color.red * 0.75f;
+
+                    texture.SetPixel(x, y, color);
+                }
+            }
+        }
         texture.Apply();
+    }
+
+    Vector3 Normal(int x, int y, int z)
+    {
+        int res = m_surface.m_surface_res;
+        int res2 = res * res;
+
+        float value = m_surface.m_surfaceValues[x + y * res + z * res2];
+        float dx = value - m_surface.m_surfaceValues[(x + 1) + y * res + z * res2];
+        float dy = value - m_surface.m_surfaceValues[x + (y + 1) * res + z * res2];
+        float dz = value - m_surface.m_surfaceValues[x + y * res + (z + 1) * res2];
+        Vector3 normal = (dx != 0f || dy != 0f || dz != 0f) ? new Vector3(dx, dy, dz).normalized : Vector3.zero;
+        return normal;
     }
 }

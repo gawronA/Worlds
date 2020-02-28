@@ -1,29 +1,34 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
+using Worlds.ProceduralTerrain.Generator;
 
 public class Surface : MonoBehaviour
 {
     public int m_num_of_chunks = 1;
-    public int m_res = 16;
+    public int m_chunk_res = 16;
+    public float m_radius;
+
+    public int m_mesh_res { get; private set; }
+    public int m_surface_res { get; private set; }
     public float[] m_surfaceValues { get; private set; }
+    PlanetGenerator generator;
 
     private List<GameObject> m_chunks;
 
-
     public GameObject surfaceChunkPrefab;
+    public GameObject surfaceMapTexturePrefab;
     void Start()
     {
-        int res = m_num_of_chunks * m_res;
-        int res2 = res * res;
+        m_mesh_res = m_num_of_chunks * m_chunk_res;
+        m_surface_res = m_num_of_chunks * m_chunk_res + 2;
 
-        int res_p = m_num_of_chunks * m_res + 1;
-        int res2_p = res_p * res_p;
-
-        m_surfaceValues = new float[res2_p * res_p];
-        m_chunks = new List<GameObject>();
-        //int x = 0, y = 0, z = 0;
-        {
+        m_surfaceValues = new float[m_surface_res * m_surface_res * m_surface_res];
+        generator = new PlanetGenerator(m_surfaceValues, m_surface_res);
+        generator.Clear();
+        generator.Sphere(Vector3Int.one * m_mesh_res / 2, m_radius);
+        //generator.Point(Vector3Int.one * m_mesh_res / 2);
+        
+        {/*
             int x, y, z;
             for(z = 0; z < res; z++)
             {
@@ -55,8 +60,9 @@ public class Surface : MonoBehaviour
                 m_surfaceValues[x + y * res_p + z * res2_p] = -1f;
             }
             m_surfaceValues[x + y * res_p + z * res2_p] = -1f;
-        }
+       */ }
 
+        m_chunks = new List<GameObject>();
         for(int z = 0; z < m_num_of_chunks; z++)
         {
             for(int y = 0; y < m_num_of_chunks; y++)
@@ -64,14 +70,15 @@ public class Surface : MonoBehaviour
                 for(int x = 0; x < m_num_of_chunks; x++)
                 {
                     int index = x + y * m_num_of_chunks + z * m_num_of_chunks * m_num_of_chunks;
-                    GameObject obj = Instantiate(surfaceChunkPrefab, transform.position + new Vector3(x * m_res, y * m_res, z * m_res), Quaternion.identity, transform);
-                    obj.name = name + "_" + index.ToString();
-                    m_chunks.Add(obj);
-                    obj.GetComponent<SurfaceChunk>().Initalize(index);
-                    obj.GetComponent<SurfaceChunk>().Refresh();
+                    GameObject chunk = Instantiate(surfaceChunkPrefab, transform.position + new Vector3(x * m_chunk_res, y * m_chunk_res, z * m_chunk_res), Quaternion.identity, transform);
+                    chunk.name = name + "_" + index.ToString();
+                    m_chunks.Add(chunk);
+                    chunk.GetComponent<SurfaceChunk>().Initalize(index);
+                    chunk.GetComponent<SurfaceChunk>().Refresh();
                 }
             }
         }
+        Instantiate(surfaceMapTexturePrefab, transform.position + new Vector3(-20.3f, 1.12f, 0f), Quaternion.Euler(90f, -180f, 0), transform);
     }
 
     // Update is called once per frame
