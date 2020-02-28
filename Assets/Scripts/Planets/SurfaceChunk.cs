@@ -20,28 +20,22 @@ public class SurfaceChunk : MonoBehaviour
     public float m_player_distance;
 
     //LOD groups
-    public int m_current_lod = 2;
-    public float m_LOD0_dist = 200f; //0 - 200m
-    public float m_LOD1_dist = 400f; //m_LOD0_dist - 400m
-    public float m_LOD2_dist = 600f;
+    public int m_lod_mesh_divider = 1;
+    public int m_current_lod
+    {
+        get { return (int)Mathf.Log(m_lod_mesh_divider, 2); }
+        set
+        {
+            m_lod_mesh_divider = (int)Mathf.Pow(2, value);
+            SetResolutions();
+            Refresh();
+        }
+    }
+    public float[] m_lod_dist = { 200f, 400f, 600f };
 
     //surface data
-    /*public int m_res { get; private set; }
-    private int m_res2;
-    private int m_res3;
-    private int m_res_p;
-    private int m_res2_p;
-    private int m_res3_p;
-    private int m_full_res_p;
-    private int m_full_res2_p;*/
-
     private int m_mesh_res;
-    //private int m_mesh_res2;
     private int m_mesh_res3;
-
-    private int m_normal_res;
-    private int m_normal_res2;
-    private int m_normal_res3;
 
     private int m_surface_res;
     private int m_surface_res2;
@@ -58,7 +52,6 @@ public class SurfaceChunk : MonoBehaviour
     private NativeArray<int> m_cubeEdgeFlagsBuffer;
     private NativeArray<int> m_triangleConnectionTableBuffer;
     private NativeArray<Vertex> m_verticesBuffer;
-    private NativeArray<float3> m_normalTexture;
     private NativeArray<float> m_surfaceValues;
     private int m_maxVerts;
 
@@ -74,6 +67,15 @@ public class SurfaceChunk : MonoBehaviour
     private void Update()
     {
         if(m_refreshed) CompleteTriangulation();
+        for(int i = 0; i < m_lod_dist.Length; i++)
+        {
+            if(m_player_distance <= m_lod_dist[i])
+            {
+                if(m_current_lod != i) m_current_lod = i;
+                break;
+            }
+        }
+
         if(m_Refresh)
         {
             Refresh();
@@ -92,7 +94,6 @@ public class SurfaceChunk : MonoBehaviour
     {
         m_triangulateJobHandle.Complete();
         if(m_verticesBuffer != null && m_verticesBuffer.Length != 0) m_verticesBuffer.Dispose();
-        if(m_normalTexture != null && m_normalTexture.Length != 0) m_normalTexture.Dispose();
         if(m_surfaceValues != null && m_surfaceValues.Length != 0) m_surfaceValues.Dispose();
         if(m_cubeEdgeFlagsBuffer != null && m_cubeEdgeFlagsBuffer.Length != 0) m_cubeEdgeFlagsBuffer.Dispose();
         if(m_triangleConnectionTableBuffer != null && m_triangleConnectionTableBuffer.Length != 0) m_triangleConnectionTableBuffer.Dispose();
@@ -119,9 +120,8 @@ public class SurfaceChunk : MonoBehaviour
 
     public void Refresh()
     {
-        SetResolutions();
+        
         m_verticesBuffer = new NativeArray<Vertex>(m_maxVerts, Allocator.TempJob);
-        m_normalTexture = new NativeArray<float3>(m_normal_res3, Allocator.TempJob);
         m_surfaceValues = new NativeArray<float>(m_surface_res3, Allocator.TempJob);
 
         //Przepisywanie surfaceValue
@@ -131,67 +131,49 @@ public class SurfaceChunk : MonoBehaviour
             {
                 for(int x = 0; x < m_surface_res; x++)
                 {
-                    m_surfaceValues[x + y * m_surface_res + z * m_surface_res2] = m_surface.m_surfaceValues[m_offset +  (x * m_current_lod) + 
-                                                                                                                        (y * m_current_lod) * m_full_res + 
-                                                                                                                        (z * m_current_lod) * m_full_res2];
+                    m_surfaceValues[x + y * m_surface_res + z * m_surface_res2] = m_surface.m_surfaceValues[m_offset +  (x * m_lod_mesh_divider) + 
+                                                                                                                        (y * m_lod_mesh_divider) * m_full_res + 
+                                                                                                                        (z * m_lod_mesh_divider) * m_full_res2];
                 }
             }
         }
         
-        ResetVertBufferJob resetVertBufferJob = new ResetVertBufferJob()
-        {
-            _Vertices = m_verticesBuffer
-        };
-
-        CalculateNormalTextureJob calculateNormalTextureJob = new CalculateNormalTextureJob()
-        {
-            _SurfaceRes = m_surface_res,
-            _NormalRes = m_normal_res,
-            _DensityMap = m_surfaceValues,
-            _NormalTexture = m_normalTexture
-        };
-
         TriangulateJob triangulateJob = new TriangulateJob()
         {
             _TriangleConnectionTable = m_triangleConnectionTableBuffer,
             _CubeEdgeFlags = m_cubeEdgeFlagsBuffer,
             _MeshRes = m_mesh_res,
             _SurfaceRes = m_surface_res,
-            _NormalRes = m_normal_res,
             _DensityMap = m_surfaceValues,
-            _NormalTexture = m_normalTexture,
             _Vertices = m_verticesBuffer,
-            _Scale = m_current_lod
+            _Scale = m_lod_mesh_divider
         };
 
-        //JobHandle resetVertBufferJobHandle = resetVertBufferJob.Schedule(m_res3, Mathf.CeilToInt(m_res3 / 8f));
-        //JobHandle calculateNormalTextureJobHandle = calculateNormalTextureJob.Schedule(m_res3, Mathf.CeilToInt(m_res3 / 8f));
-        //JobHandle triangulateDependencies = JobHandle.CombineDependencies(resetVertBufferJobHandle, calculateNormalTextureJobHandle);
-        resetVertBufferJob.Run(m_mesh_res3);
-        calculateNormalTextureJob.Run(m_normal_res3);
-        triangulateJob.Run(m_mesh_res3);
-        //m_triangulateJobHandle = triangulateJob.Schedule(m_res3, Mathf.CeilToInt(m_res3 / 8f), triangulateDependencies);
-
+        m_triangulateJobHandle = triangulateJob.Schedule(m_mesh_res3, m_mesh_res / 2);
         m_refreshed = true;
     }
 
     private void CompleteTriangulation()
     {
+        
         m_triangulateJobHandle.Complete();
-
+        
+        
+        
         List<Vector3> vertices = new List<Vector3>();
         List<int> triangles = new List<int>();
         List<Vector3> normals = new List<Vector3>();
         for(int i = 0, ti = 0; i < m_maxVerts; i++)
         {
-            if(m_verticesBuffer[i].position.w != -1f)
+            if(m_verticesBuffer[i].position.w != 0f)
             {
                 vertices.Add(new Vector3(m_verticesBuffer[i].position.x, m_verticesBuffer[i].position.y, m_verticesBuffer[i].position.z));
                 triangles.Add(ti++);
                 normals.Add(new Vector3(m_verticesBuffer[i].normal.x, m_verticesBuffer[i].normal.y, m_verticesBuffer[i].normal.z));
             }
         }
-
+        float ta = Time.realtimeSinceStartup;
+        
         Mesh mesh = new Mesh();
         mesh.name = name + "_mesh";
         mesh.SetVertices(vertices);
@@ -201,35 +183,23 @@ public class SurfaceChunk : MonoBehaviour
         m_meshFilter.mesh.Clear();
         m_meshFilter.mesh = mesh;
         m_verticesBuffer.Dispose();
-        m_normalTexture.Dispose();
         m_surfaceValues.Dispose();
 
         m_refreshed = false;
+        float tb = Time.realtimeSinceStartup - ta;
+        Debug.Log(tb.ToString());
     }
 
     private void SetResolutions()
     {
-        m_mesh_res = m_surface.m_chunk_res / m_current_lod;
+        m_mesh_res = m_surface.m_chunk_res / m_lod_mesh_divider;
         m_mesh_res3 = m_mesh_res * m_mesh_res * m_mesh_res;
 
-        m_normal_res = m_mesh_res + 1;
-        m_normal_res2 = m_normal_res * m_normal_res;
-        m_normal_res3 = m_normal_res2 * m_normal_res;
-
-        m_surface_res = m_normal_res + 1;
+        m_surface_res = m_mesh_res + 1;
         m_surface_res2 = m_surface_res * m_surface_res;
         m_surface_res3 = m_surface_res2 * m_surface_res;
 
         m_maxVerts = m_mesh_res3 * 5 * 3;
-        /*m_res = m_surface.m_res / m_current_lod;
-        m_res2 = m_res * m_res;
-        m_res3 = m_res2 * m_res;
-
-        m_res_p = m_res + 1;
-        m_res2_p = m_res_p * m_res_p;
-        m_res3_p = m_res2_p * m_res_p;
-
-        m_maxVerts = m_res3 * 5 * 3;*/
     }
 }
 

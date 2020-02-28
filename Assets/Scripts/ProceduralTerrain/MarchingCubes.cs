@@ -17,18 +17,16 @@ namespace Worlds
                 public float3 normal;
             }
 
-            //[BurstCompile]
+            [BurstCompile]
             public struct TriangulateJob : IJobParallelFor
             {
                 [ReadOnly] public int _MeshRes;
                 [ReadOnly] public int _SurfaceRes;
-                [ReadOnly] public int _NormalRes;
                 [ReadOnly] public float _Scale;
 
                 [ReadOnly] public NativeArray<int> _TriangleConnectionTable;
                 [ReadOnly] public NativeArray<int> _CubeEdgeFlags;
                 [ReadOnly] public NativeArray<float> _DensityMap;
-                [ReadOnly] public NativeArray<float3> _NormalTexture;
 
                 [NativeDisableContainerSafetyRestriction]
                 [WriteOnly] public NativeArray<Vertex> _Vertices;
@@ -76,77 +74,14 @@ namespace Worlds
                     return (delta == 0.0f) ? 0.5f : -v1 / delta;
                 }
 
-                Vertex CreateVertex(float3 position)
+                Vertex CreateVertex(float3 position, float3 normal_vertex1, float3 normal_vertex2)
                 {
                     Vertex vert = new Vertex();
                     vert.position = new float4((position), 1.0f) * _Scale;
-                    vert.normal = Trilinear(position);
+                    float3 u = normal_vertex1 - position;
+                    float3 v = normal_vertex2 - position;
+                    vert.normal = normalize(cross(u, v));
                     return vert;
-                }
-
-                Vertex CreateVertex(float3 position, float3 normal_vertex)
-                {
-                    Vertex vert = new Vertex();
-                    vert.position = new float4((position), 1.0f) * _Scale;
-                    vert.normal = normalize(cross(position, normal_vertex));
-                    return vert;
-                }
-
-                float3 Trilinear(float3 position)
-                {
-                    int res = _NormalRes;
-                    int res2 = res * res;
-
-                    float offset = 0.5f;
-                    position -= offset;
-
-                    int x = (int)position.x;
-                    int y = (int)position.y;
-                    int z = (int)position.z;
-
-                    float xtail = position.x - x;
-                    float ytail = position.y - y;
-                    float ztail = position.z - z;
-
-                    float3 C000 = _NormalTexture[x + y * res + z * res2];                   //0
-                    float3 C001 = _NormalTexture[x + (y + 1) * res + z * res2];             //y
-                    float3 C010 = _NormalTexture[x + y * res + (z + 1) * res2];             //z
-                    float3 C011 = _NormalTexture[x + (y + 1) * res + (z + 1) * res2];       //yz
-
-                    float3 C100 = _NormalTexture[(x + 1) + y * res + z * res2];             //x
-                    float3 C101 = _NormalTexture[(x + 1) + (y + 1) * res + z * res2];       //xy
-                    float3 C110 = _NormalTexture[(x + 1) + y * res + (z + 1) * res2];       //xz
-                    float3 C111 = _NormalTexture[(x + 1) + (y + 1) * res + (z + 1) * res2]; //xyz
-
-                    float3 C00 = lerp(C000, C100, xtail);
-                    float3 C01 = lerp(C001, C101, xtail);
-                    float3 C10 = lerp(C010, C110, xtail);
-                    float3 C11 = lerp(C011, C111, xtail);
-
-                    float3 C0 = lerp(C00, C10, ztail);
-                    float3 C1 = lerp(C01, C11, ztail);
-
-                    float3 C = lerp(C0, C1, ytail);
-
-                    return normalize(C);
-
-                    //int3 xyzindex = (int3)(position - offset);
-                    //float3 xyztail = (position - offset) - xyzindex;
-
-                    /*float3 normalA = _NormalTexture[xyzindex.x + xyzindex.y * _Res + xyzindex.z * res2];
-                    float3 normalB;
-
-                    if(xyzindex.x + 1 >= _Res && xyzindex.y + 1 >= _Res && xyzindex.z + 1 >= _Res) normalB = new float3(0f, 0f, 0f);
-                    else if(xyzindex.x + 1 >= _Res && xyzindex.y + 1 >= _Res) normalB = new float3(0f, 0f, _NormalTexture[xyzindex.x + xyzindex.y * _Res + (xyzindex.z + 1) * res2].z);
-                    else if(xyzindex.x + 1 >= _Res && xyzindex.z + 1 >= _Res) normalB = new float3(0f, _NormalTexture[xyzindex.x + (xyzindex.y + 1) * _Res + xyzindex.z * res2].y, 0f);
-                    else if(xyzindex.y + 1 >= _Res && xyzindex.z + 1 >= _Res) normalB = new float3(_NormalTexture[(xyzindex.x + 1) + xyzindex.y * _Res + xyzindex.z * res2].x, 0f, 0f);
-                    else if(xyzindex.x + 1 >= _Res) normalB = new float3(0f, _NormalTexture[xyzindex.x + (xyzindex.y + 1) * _Res + xyzindex.z * res2].y, _NormalTexture[xyzindex.x + xyzindex.y * _Res + (xyzindex.z + 1) * res2].z);
-                    else if(xyzindex.y + 1 >= _Res) normalB = new float3(_NormalTexture[(xyzindex.x + 1) + xyzindex.y * _Res + xyzindex.z * res2].x, 0f, _NormalTexture[xyzindex.x + xyzindex.y * _Res + (xyzindex.z + 1) * res2].z);
-                    else if(xyzindex.z + 1 >= _Res) normalB = new float3(_NormalTexture[(xyzindex.x + 1) + xyzindex.y * _Res + xyzindex.z * res2].x, _NormalTexture[xyzindex.x + (xyzindex.y + 1) * _Res + xyzindex.z * res2].y, 0f);
-                    else normalB = new float3(_NormalTexture[(xyzindex.x + 1) + xyzindex.y * _Res + xyzindex.z * res2].x, _NormalTexture[xyzindex.x + (xyzindex.y + 1) * _Res + xyzindex.z * res2].y, _NormalTexture[xyzindex.x + xyzindex.y * _Res + (xyzindex.z + 1) * res2].z);*/
-
-                    //float3 normal = lerp(normalA, normalB, xyztail);
-                    //return normalize(normal);
                 }
 
                 public void Execute(int index)
@@ -191,14 +126,13 @@ namespace Worlds
                     {
                         if(_TriangleConnectionTable[flagIndex * 16 + 3 * i] >= 0)
                         {
-                            float3 vertex_position;
-                            vertex_position = edgeVertex[_TriangleConnectionTable[flagIndex * 16 + (3 * i + 0)]];
-                            _Vertices[buffer_index * 15 + (3 * i + 0)] = CreateVertex(vertex_position);
-                            vertex_position = edgeVertex[_TriangleConnectionTable[flagIndex * 16 + (3 * i + 1)]];
-                            _Vertices[buffer_index * 15 + (3 * i + 1)] = CreateVertex(vertex_position);
-                            vertex_position = edgeVertex[_TriangleConnectionTable[flagIndex * 16 + (3 * i + 2)]];
-                            _Vertices[buffer_index * 15 + (3 * i + 2)] = CreateVertex(vertex_position);
-                            
+                            float3 vertex1_position = edgeVertex[_TriangleConnectionTable[flagIndex * 16 + (3 * i + 0)]];
+                            float3 vertex2_position = edgeVertex[_TriangleConnectionTable[flagIndex * 16 + (3 * i + 1)]];
+                            float3 vertex3_position = edgeVertex[_TriangleConnectionTable[flagIndex * 16 + (3 * i + 2)]];
+
+                            _Vertices[buffer_index * 15 + (3 * i + 0)] = CreateVertex(vertex1_position, vertex2_position, vertex3_position);
+                            _Vertices[buffer_index * 15 + (3 * i + 1)] = CreateVertex(vertex2_position, vertex3_position, vertex1_position);
+                            _Vertices[buffer_index * 15 + (3 * i + 2)] = CreateVertex(vertex3_position, vertex1_position, vertex2_position);
                         }
                     }
                     cube.Dispose();
