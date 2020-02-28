@@ -51,9 +51,8 @@ public class SurfaceChunk : MonoBehaviour
     //MC daata
     private NativeArray<int> m_cubeEdgeFlagsBuffer;
     private NativeArray<int> m_triangleConnectionTableBuffer;
-    private NativeArray<Vertex> m_verticesBuffer;
+    private NativeQueue<Triangle> m_trianglesBuffer;
     private NativeArray<float> m_surfaceValues;
-    private int m_maxVerts;
 
     //job
     private JobHandle m_triangulateJobHandle;
@@ -93,7 +92,7 @@ public class SurfaceChunk : MonoBehaviour
     private void OnDestroy()
     {
         m_triangulateJobHandle.Complete();
-        if(m_verticesBuffer != null && m_verticesBuffer.Length != 0) m_verticesBuffer.Dispose();
+        if(m_trianglesBuffer.IsCreated) m_trianglesBuffer.Dispose();
         if(m_surfaceValues != null && m_surfaceValues.Length != 0) m_surfaceValues.Dispose();
         if(m_cubeEdgeFlagsBuffer != null && m_cubeEdgeFlagsBuffer.Length != 0) m_cubeEdgeFlagsBuffer.Dispose();
         if(m_triangleConnectionTableBuffer != null && m_triangleConnectionTableBuffer.Length != 0) m_triangleConnectionTableBuffer.Dispose();
@@ -120,8 +119,8 @@ public class SurfaceChunk : MonoBehaviour
 
     public void Refresh()
     {
-        
-        m_verticesBuffer = new NativeArray<Vertex>(m_maxVerts, Allocator.TempJob);
+
+        m_trianglesBuffer = new NativeQueue<Triangle>(Allocator.TempJob);
         m_surfaceValues = new NativeArray<float>(m_surface_res3, Allocator.TempJob);
 
         //Przepisywanie surfaceValue
@@ -145,7 +144,7 @@ public class SurfaceChunk : MonoBehaviour
             _MeshRes = m_mesh_res,
             _SurfaceRes = m_surface_res,
             _DensityMap = m_surfaceValues,
-            _Vertices = m_verticesBuffer,
+            _Triangles = m_trianglesBuffer.AsParallelWriter(),
             _Scale = m_lod_mesh_divider
         };
 
@@ -163,17 +162,23 @@ public class SurfaceChunk : MonoBehaviour
         List<Vector3> vertices = new List<Vector3>();
         List<int> triangles = new List<int>();
         List<Vector3> normals = new List<Vector3>();
-        for(int i = 0, ti = 0; i < m_maxVerts; i++)
+        int triangles_count = m_trianglesBuffer.Count;
+        for(int i = 0, ti = 0; i < triangles_count; i++)
         {
-            if(m_verticesBuffer[i].position.w != 0f)
-            {
-                vertices.Add(new Vector3(m_verticesBuffer[i].position.x, m_verticesBuffer[i].position.y, m_verticesBuffer[i].position.z));
-                triangles.Add(ti++);
-                normals.Add(new Vector3(m_verticesBuffer[i].normal.x, m_verticesBuffer[i].normal.y, m_verticesBuffer[i].normal.z));
-            }
+            Triangle triangle = m_trianglesBuffer.Dequeue();
+            vertices.Add(new Vector3(triangle.v1.position.x, triangle.v1.position.y, triangle.v1.position.z));
+            triangles.Add(ti++);
+            normals.Add(new Vector3(triangle.v1.normal.x, triangle.v1.normal.y, triangle.v1.normal.z));
+            
+            vertices.Add(new Vector3(triangle.v2.position.x, triangle.v2.position.y, triangle.v2.position.z));
+            triangles.Add(ti++);
+            normals.Add(new Vector3(triangle.v2.normal.x, triangle.v2.normal.y, triangle.v2.normal.z));
+            
+            vertices.Add(new Vector3(triangle.v3.position.x, triangle.v3.position.y, triangle.v3.position.z));
+            triangles.Add(ti++);
+            normals.Add(new Vector3(triangle.v3.normal.x, triangle.v3.normal.y, triangle.v3.normal.z));
         }
-        float ta = Time.realtimeSinceStartup;
-        
+
         Mesh mesh = new Mesh();
         mesh.name = name + "_mesh";
         mesh.SetVertices(vertices);
@@ -182,12 +187,10 @@ public class SurfaceChunk : MonoBehaviour
 
         m_meshFilter.mesh.Clear();
         m_meshFilter.mesh = mesh;
-        m_verticesBuffer.Dispose();
+        m_trianglesBuffer.Dispose();
         m_surfaceValues.Dispose();
 
         m_refreshed = false;
-        float tb = Time.realtimeSinceStartup - ta;
-        Debug.Log(tb.ToString());
     }
 
     private void SetResolutions()
@@ -198,8 +201,6 @@ public class SurfaceChunk : MonoBehaviour
         m_surface_res = m_mesh_res + 1;
         m_surface_res2 = m_surface_res * m_surface_res;
         m_surface_res3 = m_surface_res2 * m_surface_res;
-
-        m_maxVerts = m_mesh_res3 * 5 * 3;
     }
 }
 

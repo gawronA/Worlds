@@ -1,7 +1,6 @@
 ﻿using Unity.Burst;
 using Unity.Jobs;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using static Unity.Mathematics.math;
 
@@ -13,8 +12,13 @@ namespace Worlds
         {
             public struct Vertex
             {
-                public float4 position;
+                public float3 position;
                 public float3 normal;
+            }
+
+            public struct Triangle
+            {
+                public Vertex v1, v2, v3;
             }
 
             [BurstCompile]
@@ -28,8 +32,7 @@ namespace Worlds
                 [ReadOnly] public NativeArray<int> _CubeEdgeFlags;
                 [ReadOnly] public NativeArray<float> _DensityMap;
 
-                [NativeDisableContainerSafetyRestriction]
-                [WriteOnly] public NativeArray<Vertex> _Vertices;
+                [WriteOnly] public NativeQueue<Triangle>.ParallelWriter _Triangles;
 
                 static readonly int2[] _EdgeConnections =
                 {
@@ -77,7 +80,7 @@ namespace Worlds
                 Vertex CreateVertex(float3 position, float3 normal_vertex1, float3 normal_vertex2)
                 {
                     Vertex vert = new Vertex();
-                    vert.position = new float4((position), 1.0f) * _Scale;
+                    vert.position = position * _Scale;
                     float3 u = normal_vertex1 - position;
                     float3 v = normal_vertex2 - position;
                     vert.normal = normalize(cross(u, v));
@@ -130,61 +133,21 @@ namespace Worlds
                             float3 vertex2_position = edgeVertex[_TriangleConnectionTable[flagIndex * 16 + (3 * i + 1)]];
                             float3 vertex3_position = edgeVertex[_TriangleConnectionTable[flagIndex * 16 + (3 * i + 2)]];
 
-                            _Vertices[buffer_index * 15 + (3 * i + 0)] = CreateVertex(vertex1_position, vertex2_position, vertex3_position);
-                            _Vertices[buffer_index * 15 + (3 * i + 1)] = CreateVertex(vertex2_position, vertex3_position, vertex1_position);
-                            _Vertices[buffer_index * 15 + (3 * i + 2)] = CreateVertex(vertex3_position, vertex1_position, vertex2_position);
+                            Vertex v1 = CreateVertex(vertex1_position, vertex2_position, vertex3_position);
+                            Vertex v2 = CreateVertex(vertex2_position, vertex3_position, vertex1_position);
+                            Vertex v3 = CreateVertex(vertex3_position, vertex1_position, vertex2_position);
+
+                            Triangle triangle = new Triangle()
+                            {
+                                v1 = v1,
+                                v2 = v2,
+                                v3 = v3
+                            };
+                            _Triangles.Enqueue(triangle);
                         }
                     }
                     cube.Dispose();
                     edgeVertex.Dispose();
-                }
-            }
-
-            //[BurstCompile]
-            public struct ResetVertBufferJob : IJobParallelFor
-            {
-                [NativeDisableContainerSafetyRestriction]
-                [WriteOnly] public NativeArray<Vertex> _Vertices;
-
-                public void Execute(int index)
-                {
-                    for(int i = 0; i < 3 * 5; i++)
-                    {
-                        Vertex vertex = new Vertex();
-                        vertex.position = new float4(-1f, -1f, -1f, -1f);
-                        vertex.normal = new float3(0f, 0f, 0f);
-                        _Vertices[index * 3 * 5 + i] = vertex;
-                    }
-                }
-            }
-
-            //[BurstCompile]
-            public struct CalculateNormalTextureJob : IJobParallelFor
-            {
-                [ReadOnly] public int _SurfaceRes;
-                [ReadOnly] public int _NormalRes;
-                [ReadOnly] public NativeArray<float> _DensityMap;
-                
-                [WriteOnly] public NativeArray<float3> _NormalTexture;
-
-                float dx, dy, dz;
-                float value;
-
-                public void Execute(int index)
-                {
-                    int res = _SurfaceRes;
-                    int res2 = res * res;
-
-                    int x = index % _NormalRes;
-                    int y = (index / _NormalRes) % _NormalRes;
-                    int z = (index / (_NormalRes * _NormalRes)) % _NormalRes;
-
-                    value = _DensityMap[x + y * res + z * res2];
-                    dx = value - _DensityMap[(x + 1) + y * res + z * res2];
-                    dy = value - _DensityMap[x + (y + 1) * res + z * res2];
-                    dz = value - _DensityMap[x + y * res + (z + 1) * res2];
-                    float3 normal = (dx != 0f || dy != 0f || dz != 0f) ? normalize(float3(dx, dy, dz)) : 0f;
-                    _NormalTexture[index] = normal;
                 }
             }
         }
