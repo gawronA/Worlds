@@ -41,8 +41,8 @@ public class SurfaceChunk : MonoBehaviour
     private int m_surface_res2;
     private int m_surface_res3;
 
-    private int m_full_res;
-    private int m_full_res2;
+    private int m_full_surface_res;
+    private int m_full_surface_res2;
 
     //refs
     private Surface m_surface;
@@ -106,9 +106,9 @@ public class SurfaceChunk : MonoBehaviour
         m_position = new Vector3Int(m_id % m_surface.m_num_of_chunks, (m_id / m_surface.m_num_of_chunks) % m_surface.m_num_of_chunks, (m_id / (m_surface.m_num_of_chunks * m_surface.m_num_of_chunks)) % m_surface.m_num_of_chunks);
         
         SetResolutions();
-        m_full_res = m_surface.m_num_of_chunks * m_surface.m_chunk_res + 2;
-        m_full_res2 = m_full_res * m_full_res;
-        m_offset = m_position.x * m_surface.m_chunk_res + m_position.y * m_surface.m_chunk_res * m_full_res + m_position.z * m_surface.m_chunk_res * m_full_res2;
+        m_full_surface_res = m_surface.m_surface_res;
+        m_full_surface_res2 = m_full_surface_res * m_full_surface_res;
+        m_offset = m_position.x * m_surface.m_chunk_res + m_position.y * m_surface.m_chunk_res * m_full_surface_res + m_position.z * m_surface.m_chunk_res * m_full_surface_res2;
 
         m_cubeEdgeFlagsBuffer = new NativeArray<int>(256, Allocator.Persistent);
         for(int i = 0; i < 256; i++) m_cubeEdgeFlagsBuffer[i] = MarchingCubesTables.CubeEdgeFlags[i];
@@ -131,8 +131,8 @@ public class SurfaceChunk : MonoBehaviour
                 for(int x = 0; x < m_surface_res; x++)
                 {
                     m_surfaceValues[x + y * m_surface_res + z * m_surface_res2] = m_surface.m_surfaceValues[m_offset +  (x * m_lod_mesh_divider) + 
-                                                                                                                        (y * m_lod_mesh_divider) * m_full_res + 
-                                                                                                                        (z * m_lod_mesh_divider) * m_full_res2];
+                                                                                                                        (y * m_lod_mesh_divider) * m_full_surface_res + 
+                                                                                                                        (z * m_lod_mesh_divider) * m_full_surface_res2];
                 }
             }
         }
