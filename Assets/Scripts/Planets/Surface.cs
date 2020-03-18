@@ -13,7 +13,9 @@ public class Surface : MonoBehaviour
     public int m_mesh_res { get; private set; }
     public int m_surface_res { get; private set; }
     public float[] m_surfaceValues { get; private set; }
-    Stamp stamp;
+
+    SurfaceLayer3D m_surfaceLayer;
+    SurfaceBrush m_brush;
 
     private List<GameObject> m_chunks;
 
@@ -24,9 +26,9 @@ public class Surface : MonoBehaviour
         m_mesh_res = m_num_of_chunks * m_chunk_res;
         m_surface_res = m_mesh_res + 1;
         m_surfaceValues = new float[m_surface_res * m_surface_res * m_surface_res];
-        stamp = new Stamp(m_surfaceValues, m_surface_res);
-        stamp.Clear();
-        stamp.GradualSphere(Vector3Int.one * m_mesh_res / 2, m_radius, m_fill, Stamp.Align.Center);
+        m_surfaceLayer = new SurfaceLayer3D(m_surfaceValues, m_surface_res);
+        m_brush = new SurfaceBrush(m_surfaceLayer);
+        m_brush.Sphere(Vector3Int.one * m_mesh_res / 2, m_radius, m_fill, SurfaceBrush.Align.Center);
         //generator = new PlanetGenerator(m_surfaceValues, m_surface_res);
         //generator.Clear();
         //generator.Sphere(Vector3Int.one * m_mesh_res / 2, m_radius);
@@ -87,7 +89,7 @@ public class Surface : MonoBehaviour
 
     private void Update()
     {
-        stamp.Clear();
-        stamp.GradualSphere(Vector3Int.one * m_mesh_res / 2, m_radius, m_fill, Stamp.Align.Center);
+        m_surfaceLayer.Clear();
+        m_brush.Sphere(Vector3Int.one * m_mesh_res / 2, m_radius, m_fill, SurfaceBrush.Align.Center);
     }
 }

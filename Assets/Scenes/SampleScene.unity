@@ -243,9 +243,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2cf8ef6ae83e99349aeacc66b6d49669, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_num_of_chunks: 3
+  m_num_of_chunks: 2
   m_chunk_res: 16
-  m_radius: 8
+  m_radius: 12
+  m_fill: 0.5
   surfaceChunkPrefab: {fileID: 5624403344370347002, guid: 83e0c966791aa1d46b394b12ae378189,
     type: 3}
   surfaceMapTexturePrefab: {fileID: 1169801171756161807, guid: d602228623a4daa4a8fd8c477de5d832,

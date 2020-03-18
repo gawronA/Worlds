@@ -2,7 +2,6 @@
 using UnityEngine;
 using Unity.Collections;
 using Unity.Jobs;
-using Unity.Mathematics;
 using Worlds.ProceduralTerrain.MarchingCubes;
 
 public class SurfaceChunk : MonoBehaviour
