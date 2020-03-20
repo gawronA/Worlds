@@ -25,7 +25,21 @@ namespace Worlds.ProceduralTerrain.Generator.Engine
             set { values[i] = value; }
         }
 
-        public SurfaceLayer(int x, int y, int z, Vector3Int position)
+        public SurfaceLayer(int res)
+        {
+            res_x = res_y = res_z = res;
+            size = res_x * res_y * res_z;
+
+            i_y = res_x;
+            i_z = res_y * res_y;
+
+            position = Vector3Int.zero;
+
+            values = new float[size];
+            Clear();
+        }
+
+        public SurfaceLayer(int x, int y, int z)
         {
             res_x = x;
             res_y = y;
@@ -35,9 +49,10 @@ namespace Worlds.ProceduralTerrain.Generator.Engine
             i_y = res_x;
             i_z = res_y * res_y;
 
-            this.position = position;
+            position = Vector3Int.zero;
 
             values = new float[size];
+            Clear();
         }
 
         public SurfaceLayer(int res, Vector3Int position)
@@ -51,6 +66,23 @@ namespace Worlds.ProceduralTerrain.Generator.Engine
             this.position = position;
 
             values = new float[size];
+            Clear();
+        }
+
+        public SurfaceLayer(int x, int y, int z, Vector3Int position)
+        {
+            res_x = x;
+            res_y = y;
+            res_z = z;
+            size = res_x * res_y * res_z;
+
+            i_y = res_x;
+            i_z = res_y * res_y;
+
+            this.position = position;
+
+            values = new float[size];
+            Clear();
         }
 
         public float Get(int x, int y, int z)
@@ -74,7 +106,14 @@ namespace Worlds.ProceduralTerrain.Generator.Engine
                     values[x + y * i_y + z * i_z] = Mathf.Clamp(value, -1f, 1f);
                     break;
             }
-            
+        }
+
+        public void Clear()
+        {
+            for(int i = 0; i < size; i++)
+            {
+                values[i] = -1f;
+            }
         }
 
         public static SurfaceLayer Merge(SurfaceLayer s1, SurfaceLayer s2, float multiplier, MergeMethod mergeMethod, MergeSize mergeSize)

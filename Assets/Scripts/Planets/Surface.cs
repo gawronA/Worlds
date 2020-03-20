@@ -14,9 +14,6 @@ public class Surface : MonoBehaviour
     public int m_surface_res { get; private set; }
     public float[] m_surfaceValues { get; private set; }
 
-    SurfaceLayer3D m_surfaceLayer;
-    SurfaceBrush m_brush;
-
     private List<GameObject> m_chunks;
 
     public GameObject surfaceChunkPrefab;
@@ -25,37 +22,15 @@ public class Surface : MonoBehaviour
     {
         m_mesh_res = m_num_of_chunks * m_chunk_res;
         m_surface_res = m_mesh_res + 1;
+        SurfaceLayer root = new SurfaceLayer(m_surface_res);
+        SurfaceLayer sphere = SurfaceBrush.Sphere(Vector3Int.zero, m_radius, m_fill);
+        root = SurfaceLayer.Merge(root, sphere, 2f, SurfaceLayer.MergeMethod.Overlay, SurfaceLayer.MergeSize.Cut);
+        m_surfaceValues = root.values;
         //m_surfaceValues = new float[m_surface_res * m_surface_res * m_surface_res];
         //m_surfaceLayer = new SurfaceLayer3D(m_surfaceValues, m_surface_res);
         //m_brush = new SurfaceBrush(m_surfaceLayer);
         //m_brush.Sphere(Vector3Int.one * m_mesh_res / 2, m_radius, m_fill, SurfaceBrush.Align.Center);
 
-        SurfaceLayer s1 = new SurfaceLayer(2, Vector3Int.zero);
-        s1.Set(0, 0, 0, -1f, SurfaceLayer.MergeMethod.Overlay);
-        s1.Set(0, 0, 1, -1f, SurfaceLayer.MergeMethod.Overlay);
-        s1.Set(0, 1, 0, -1f, SurfaceLayer.MergeMethod.Overlay);
-        s1.Set(0, 1, 1, -1f, SurfaceLayer.MergeMethod.Overlay);
-        s1.Set(1, 0, 0, -1f, SurfaceLayer.MergeMethod.Overlay);
-        s1.Set(1, 0, 1, -1f, SurfaceLayer.MergeMethod.Overlay);
-        s1.Set(1, 1, 0, -1f, SurfaceLayer.MergeMethod.Overlay);
-        s1.Set(1, 1, 1, -1f, SurfaceLayer.MergeMethod.Overlay);
-        
-        SurfaceLayer s2 = new SurfaceLayer(2, new Vector3Int(0, 1, 1));
-        s2.Set(0, 0, 0, 1f, SurfaceLayer.MergeMethod.Overlay);
-        s2.Set(0, 0, 1, 1f, SurfaceLayer.MergeMethod.Overlay);
-        s2.Set(0, 1, 0, 1f, SurfaceLayer.MergeMethod.Overlay);
-        s2.Set(0, 1, 1, 1f, SurfaceLayer.MergeMethod.Overlay);
-        s2.Set(1, 0, 0, 1f, SurfaceLayer.MergeMethod.Overlay);
-        s2.Set(1, 0, 1, 1f, SurfaceLayer.MergeMethod.Overlay);
-        s2.Set(1, 1, 0, 1f, SurfaceLayer.MergeMethod.Overlay);
-        s2.Set(1, 1, 1, 1f, SurfaceLayer.MergeMethod.Overlay);
-        SurfaceLayer s3 = SurfaceLayer.Merge(s1, s2, 2f, SurfaceLayer.MergeMethod.Add, SurfaceLayer.MergeSize.Cut);
-
-        m_surfaceValues = s3.values;
-        //generator = new PlanetGenerator(m_surfaceValues, m_surface_res);
-        //generator.Clear();
-        //generator.Sphere(Vector3Int.one * m_mesh_res / 2, m_radius);
-        //generator.Point(Vector3Int.one * m_mesh_res / 2);
         
         {/*
             int x, y, z;
