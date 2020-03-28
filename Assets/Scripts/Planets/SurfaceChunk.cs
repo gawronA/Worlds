@@ -129,7 +129,7 @@ public class SurfaceChunk : MonoBehaviour
             {
                 for(int x = 0; x < m_surface_res; x++)
                 {
-                    m_surfaceValues[x + y * m_surface_res + z * m_surface_res2] = m_surface.m_surfaceValues[m_offset +  (x * m_lod_mesh_divider) + 
+                    m_surfaceValues[x + y * m_surface_res + z * m_surface_res2] = m_surface.m_surface.values[m_offset +  (x * m_lod_mesh_divider) + 
                                                                                                                         (y * m_lod_mesh_divider) * m_full_surface_res + 
                                                                                                                         (z * m_lod_mesh_divider) * m_full_surface_res2];
                 }

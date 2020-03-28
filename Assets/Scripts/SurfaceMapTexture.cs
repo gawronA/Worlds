@@ -37,7 +37,7 @@ public class SurfaceMapTexture : MonoBehaviour
             {
                 for(int x = 0; x < m_surface.m_surface_res; x++)
                 {
-                    color = new Color(0f, m_surface.m_surfaceValues[x + y * res + z * res2], 1 - m_surface.m_surfaceValues[x + y * res + z * res2]);
+                    color = new Color(0f, m_surface.m_surface.values[x + y * res + z * res2], 1 - m_surface.m_surface.values[x + y * res + z * res2]);
                     if(x == res - 1 || y == res - 1 || z == res - 1) color += Color.red;
                     texture.SetPixel(x, y, color);
                 }

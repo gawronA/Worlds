@@ -43,13 +43,12 @@ namespace Worlds.ProceduralTerrain.Generator.Engine
                 {
                     for(int x = 0; x < res; x++)
                     {
-                        float magnitude = Mathf.Sqrt(Mathf.Pow(x - rmax, 2) + Mathf.Pow(y - rmax, 2) + Mathf.Pow(z - rmax, 2));
+                        float magnitude = Mathf.Sqrt(Mathf.Pow(x - (int)rmax, 2) + Mathf.Pow(y - (int)rmax, 2) + Mathf.Pow(z - (int)rmax, 2));
                         float value = Mathf.Lerp(1f, -1f, Mathf.Clamp01((magnitude - rmin) / (rmax - rmin + 0.001f)));
                         layer.Set(x, y, z, value, SurfaceLayer.MergeMethod.Overlay);
                     }
                 }
             }
-
             return layer;
         }
         /*
@@ -88,22 +87,54 @@ namespace Worlds.ProceduralTerrain.Generator.Engine
                     }
                 }
             }
-        }
-            
-        public void Tetrahedron(Vector3 A, Vector3 B, Vector3 C, Vector3 D, float fill, Alignment align)
+        }*/
+        
+        public static SurfaceLayer Tetrahedron(Vector3Int A, Vector3Int B, Vector3Int C, Vector3Int D, float fill)
         {
-            A = (1f / fill) * A;
-            B = (1f / fill) * B;
-            C = (1f / fill) * C;
-            D = (1f / fill) * D;
-            Vector3 O = new Vector3((A.x + B.x + C.x + D.x) / 4f, (A.y + B.y + C.y + D.y) / 4f, (A.z + B.z + C.z + D.z) / 4f);
+            Vector3 Ap = new Vector3(A.x, A.y, A.z) * (1f / fill);
+            Vector3 Bp = new Vector3(B.x, B.y, B.z) * (1f / fill);
+            Vector3 Cp = new Vector3(C.x, C.y, C.z) * (1f / fill);
+            Vector3 Dp = new Vector3(D.x, D.y, D.z) * (1f / fill);
+
+            Vector3Int position = new Vector3Int(   (int)Mathf.Min(new float[] { Ap.x, Bp.x, Cp.x, Dp.x }),
+                                                    (int)Mathf.Min(new float[] { Ap.y, Bp.y, Cp.y, Dp.y }),
+                                                    (int)Mathf.Min(new float[] { Ap.z, Bp.z, Cp.z, Dp.z }));
+
+            int resx = Mathf.CeilToInt(Mathf.Max(new float[] { Ap.x, Bp.x, Cp.x, Dp.x }));
+            int resy = Mathf.CeilToInt(Mathf.Max(new float[] { Ap.y, Bp.y, Cp.y, Dp.y }));
+            int resz = Mathf.CeilToInt(Mathf.Max(new float[] { Ap.z, Bp.z, Cp.z, Dp.z }));
+            SurfaceLayer layer = new SurfaceLayer(resx, resy, resz, position);
+
+            Vector3 O = new Vector3((Ap.x + Bp.x + Cp.x + Dp.x) / 4f, (Ap.y + Bp.y + Cp.y + Dp.y) / 4f, (Ap.z + Bp.z + Cp.z + Dp.z) / 4f);
             PrimitiveTetrahedron T1 = new PrimitiveTetrahedron(A, B, C, O);
             PrimitiveTetrahedron T2 = new PrimitiveTetrahedron(A, C, D, O);
             PrimitiveTetrahedron T3 = new PrimitiveTetrahedron(A, B, D, O);
             PrimitiveTetrahedron T4 = new PrimitiveTetrahedron(B, C, D, O);
 
-                
-        }*/
+            for(int z = 0; z < resz; z++)
+            {
+                for(int y = 0; y < resy; y++)
+                {
+                    for(int x = 0; x < resx; x++)
+                    {
+                        Vector3 point = new Vector3(x, y, z) + position;
+                        Vector4 Bar1 = T1.Barycentric(point);
+                        Vector4 Bar2 = T2.Barycentric(point);
+                        Vector4 Bar3 = T3.Barycentric(point);
+                        Vector4 Bar4 = T4.Barycentric(point);
+
+                        Vector4 Bar = Vector4.zero;
+                        if(Bar1.x >= 0f && Bar1.y >= 0f && Bar1.z >= 0f && Bar1.w >= 0f) Bar = Bar1;
+                        else if(Bar2.x >= 0f && Bar2.y >= 0f && Bar2.z >= 0f && Bar2.w >= 0f) Bar = Bar2;
+                        else if(Bar3.x >= 0f && Bar3.y >= 0f && Bar3.z >= 0f && Bar3.w >= 0f) Bar = Bar3;
+                        else if(Bar4.x >= 0f && Bar4.y >= 0f && Bar4.z >= 0f && Bar4.w >= 0f) Bar = Bar4;
+                        float value = Bar != Vector4.zero ? -1f * Bar.x + -1f * Bar.y - 1f * Bar.z + 1f * Bar.w : -1f;
+                        layer.Set(x, y, z, value, SurfaceLayer.MergeMethod.Overlay);
+                    }
+                }
+            }
+            return layer;
+        }
     }
 }
 
