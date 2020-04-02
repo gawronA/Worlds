@@ -245,8 +245,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_num_of_chunks: 2
   m_chunk_res: 16
-  m_radius: 10
-  m_sigma: 0.5
+  m_radius: 8
+  m_sigma: 0.76
   m_kernelSize: 3
   surfaceChunkPrefab: {fileID: 5624403344370347002, guid: 83e0c966791aa1d46b394b12ae378189,
     type: 3}

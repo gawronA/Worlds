@@ -7,6 +7,7 @@ public class SurfaceMapTextureEditor : Editor
 {
     SurfaceMapTexture m_instance;
     SerializedProperty m_display;
+    SerializedProperty drawNegative;
     SerializedProperty z;
     GameObject m_surface;
 
@@ -15,6 +16,7 @@ public class SurfaceMapTextureEditor : Editor
         m_instance = (SurfaceMapTexture)target;
         m_surface = GameObject.Find("CelestialBody");
         m_display = serializedObject.FindProperty("display");
+        drawNegative = serializedObject.FindProperty("drawNegative");
         z = serializedObject.FindProperty("z");
     }
 
@@ -22,6 +24,7 @@ public class SurfaceMapTextureEditor : Editor
     {
         serializedObject.Update();
         EditorGUILayout.PropertyField(m_display);
+        EditorGUILayout.PropertyField(drawNegative);
         z.intValue = EditorGUILayout.IntSlider("z", z.intValue, 0, m_surface.GetComponent<Surface>().m_surface_res - 1);
         serializedObject.ApplyModifiedProperties();
     }

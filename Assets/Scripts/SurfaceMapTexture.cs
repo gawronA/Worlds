@@ -7,6 +7,7 @@ public class SurfaceMapTexture : MonoBehaviour
     public enum Display { surfaceMap};
 
     public Display display = Display.surfaceMap;
+    public bool drawNegative = false;
     public int z = 0;
 
     private Surface m_surface;
@@ -37,8 +38,17 @@ public class SurfaceMapTexture : MonoBehaviour
             {
                 for(int x = 0; x < m_surface.m_surface_res; x++)
                 {
-                    color = new Color(0f, m_surface.m_surface.values[x + y * res + z * res2], 1 - m_surface.m_surface.values[x + y * res + z * res2]);
-                    if(x == res - 1 || y == res - 1 || z == res - 1) color += Color.red;
+                    if(drawNegative)
+                    {
+                        color = new Color(-m_surface.m_surface.values[x + y * res + z * res2], m_surface.m_surface.values[x + y * res + z * res2], 1f);
+                        if(x == res - 1 || y == res - 1 || z == res - 1) color += Color.red;
+                    }
+                    else
+                    {
+                        color = new Color(0f, m_surface.m_surface.values[x + y * res + z * res2], 1 - m_surface.m_surface.values[x + y * res + z * res2]);
+                        if(x == res - 1 || y == res - 1 || z == res - 1) color += Color.red;
+                    }
+                    
                     texture.SetPixel(x, y, color);
                 }
             }

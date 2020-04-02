@@ -38,5 +38,13 @@ namespace Worlds.ProceduralTerrain.Brush.Helpers
 
             return new Vector4(L[0, 0], L[1, 0], L[2, 0], L[3, 0]);
         }
+
+        public bool IsPointInside(Vector3 point)
+        {
+            bool isInside = false;
+            Vector4 bar = Barycentric(point);
+            if(bar.x >= 0 && bar.y >= 0 && bar.z >= 0 && bar.w >= 0) isInside = true;
+            return isInside;
+        }
     }
 }

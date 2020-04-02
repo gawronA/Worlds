@@ -71,11 +71,19 @@ namespace Worlds.ProceduralTerrain.Generator.Engine
             switch(mergeMethod)
             {
                 case MergeMethod.Add:
-                    values[x + y * i_y + z * i_z] = Mathf.Clamp(values[x + y * i_y + z * i_z] + value, -1f, 1f);
+                    if(value > 0f)
+                    {
+                        float getVal = Get(x, y, z);
+                        values[x + y * i_y + z * i_z] = getVal >= 0f ? Mathf.Clamp(getVal + value, -1f, 1f) : Mathf.Clamp(value, -1f, 1f);
+                    }
                     break;
 
                 case MergeMethod.Subtract:
-                    values[x + y * i_y + z * i_z] = Mathf.Clamp(values[x + y * i_y + z * i_z] - value, -1f, 1f);
+                    if(value > 0f)
+                    {
+                        float getVal = Get(x, y, z);
+                        values[x + y * i_y + z * i_z] = getVal >=0f ? Mathf.Clamp(getVal - value, -1f, 1f) : Mathf.Clamp(-value, -1f, 1f);
+                    }
                     break;
 
                 case MergeMethod.Overlay:
@@ -109,7 +117,7 @@ namespace Worlds.ProceduralTerrain.Generator.Engine
                                 xi = (position.x + x) - layer.position.x;
                                 yi = (position.y + y) - layer.position.y;
                                 zi = (position.z + z) - layer.position.z;
-                                if((xi >= 0 && xi < res_x) && (yi >= 0 && yi < res_y) && (zi >= 0 && zi < res_z))
+                                if((xi >= 0 && xi < layer.res_x) && (yi >= 0 && yi < layer.res_y) && (zi >= 0 && zi < layer.res_z))
                                    Set(x, y, z, layer.Get(xi, yi, zi) * multiplier, mergeMethod);
                             }
                         }
@@ -159,6 +167,27 @@ namespace Worlds.ProceduralTerrain.Generator.Engine
             }
         }
 
+        /*public void Rotate(Quaternion rotation)
+        {
+            Vector3 center = new Vector3(res_x / 2f, res_y / 2f, res_z / 2f) + position;
+            Vector3 A = rotation * (position - center + new Vector3Int(0, 0, 0));
+            Vector3 B = rotation * (position - center + new Vector3Int(res_x, 0, 0));
+            Vector3 C = rotation * (position - center + new Vector3Int(res_x, 0, res_z));
+            Vector3 D = rotation * (position - center + new Vector3Int(0, 0, res_z));
+
+            Vector3 E = rotation * (position - center + new Vector3Int(0, res_y, 0));
+            Vector3 F = rotation * (position - center + new Vector3Int(res_x, res_y, 0));
+            Vector3 G = rotation * (position - center + new Vector3Int(res_x, res_y, res_z));
+            Vector3 H = rotation * (position - center + new Vector3Int(0, res_y, res_z));
+
+            //być może ceiltoint
+            int r_x = (int)(Mathf.Max(new float[] { A.x, B.x, C.x, D.x, E.x, F.x, G.x, H.x }) - Mathf.Min(new float[] { A.x, B.x, C.x, D.x, E.x, F.x, G.x, H.x }));
+            int r_y = (int)(Mathf.Max(new float[] { A.y, B.y, C.y, D.y, E.y, F.y, G.y, H.y }) - Mathf.Min(new float[] { A.y, B.y, C.y, D.y, E.y, F.y, G.y, H.y }));
+            int r_z = (int)(Mathf.Max(new float[] { A.z, B.z, C.z, D.z, E.z, F.z, G.z, H.z }) - Mathf.Min(new float[] { A.z, B.z, C.z, D.z, E.z, F.z, G.z, H.z }));
+
+            SurfaceLayer layer = new SurfaceLayer(r_x, r_y, r_z, new Vector3Int((int)center.x - r_x / 2, (int)center.y - r_y / 2, (int)center.z - r_z / 2));
+        }*/
+
         public void Filter(float[] kernel)
         {
             int kernelSize = (int)Mathf.Pow(kernel.Length, 1f/3f);
@@ -182,12 +211,16 @@ namespace Worlds.ProceduralTerrain.Generator.Engine
                                     int xs = x + kx - offset;
                                     int ys = y + ky - offset;
                                     int zs = z + kz - offset;
+                                    float kernelValue = kernel[kx + ky * kernelSize + kz * kernelSize * kernelSize];
                                     if((xs>=0 && xs < res_x) && (ys>=0 && ys < res_y) && (zs >= 0 && zs < res_z))
                                     {
-                                        float kernelValue = kernel[kx + ky * kernelSize + kz * kernelSize * kernelSize];
                                         sum += kernelValue * Get(xs, ys, zs);
-                                        sumDiv += kernelValue;
                                     }
+                                    else
+                                    {
+                                        sum += kernelValue * -1f;
+                                    }
+                                    sumDiv += kernelValue;
                                 }
                             }
                         }
