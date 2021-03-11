@@ -2,6 +2,7 @@
 using UnityEngine;
 using Worlds.ProceduralTerrain.Generator.Engine;
 using Worlds.ProceduralTerrain;
+using UnityEditor.VersionControl;
 
 public class Surface : MonoBehaviour
 {
@@ -24,13 +25,16 @@ public class Surface : MonoBehaviour
         m_mesh_res = m_num_of_chunks * m_chunk_res;
         m_surface_res = m_mesh_res + 1;
         m_surface = new SurfaceLayer(m_surface_res);
-        SurfaceLayer sphere = SurfaceBrush.Sphere(Vector3Int.one * 5, m_radius);
-        SurfaceLayer innersphere = SurfaceBrush.Sphere(Vector3Int.one * 10, m_radius / 5f);
-        //SurfaceLayer tetrahedron = SurfaceBrush.Tetrahedron(Vector3Int.zero, new Vector3Int(5, 0, 0)*3, new Vector3Int(0, 0, 5)*3, new Vector3Int(2, 5, 2)*3);
+        SurfaceLayer sphere = SurfaceBrush.Sphere(new Vector3Int(5, 5, 5), m_radius);
+        SurfaceLayer innersphere = SurfaceBrush.Sphere(new Vector3Int(8, 8, 8), m_radius / 3f);
+        SurfaceLayer outersphere = SurfaceBrush.Sphere(new Vector3Int(10, 20, 8), m_radius / 3f);
         m_surface.Merge(sphere, 2f, SurfaceLayer.MergeMethod.Overlay, SurfaceLayer.MergeSize.Cut);
         m_surface.Merge(innersphere, 2f, SurfaceLayer.MergeMethod.Subtract, SurfaceLayer.MergeSize.Cut);
-        //m_surface.Merge(tetrahedron, 2f, SurfaceLayer.MergeMethod.Add, SurfaceLayer.MergeSize.Cut);
+        m_surface.Merge(outersphere, 2f, SurfaceLayer.MergeMethod.Add, SurfaceLayer.MergeSize.Cut);
         m_surface.Filter(FilterKernel3D.Gaussian(m_kernelSize, m_sigma));
+        //m_surface.Filter(FilterKernel3D.Mean(m_kernelSize));
+        //SurfaceLayer tetrahedron = SurfaceBrush.Tetrahedron(Vector3Int.zero, new Vector3Int(5, 0, 0)*3, new Vector3Int(0, 0, 5)*3, new Vector3Int(2, 5, 2)*3);
+        //m_surface.Merge(tetrahedron, 2f, SurfaceLayer.MergeMethod.Add, SurfaceLayer.MergeSize.Cut);
         //SurfaceLayer tetra = SurfaceBrush.Tetrahedron(new Vector3Int(0, 0, 0), new Vector3Int(5, 0, 0), new Vector3Int(0, 0, 5), new Vector3Int(2, 5, 2), m_fill);
         //m_surface = SurfaceLayer.Merge(m_surface, tetra, 2f, SurfaceLayer.MergeMethod.Overlay, SurfaceLayer.MergeSize.Cut);
 
